@@ -128,365 +128,186 @@ def updated() {
 def initialize() {
 }
 
+// devices
+
 def listDevices() {
-  def resp = []
-  devices.each {
-    resp << [
-        id: it.id,
-        label: it.label,
-        manufacturerName: it.manufacturerName,
-        modelName: it.modelName,
-        name: it.name,
-        displayName: it.displayName
-    ]
-  }
-  sensors.each {
-    resp << [
-        id: it.id,
-        label: it.label,
-        manufacturerName: it.manufacturerName,
-        modelName: it.modelName,
-        name: it.name,
-        displayName: it.displayName
-    ]
-  }
-    temperatures.each {
-    resp << [
-        id: it.id,
-        label: it.label,
-        manufacturerName: it.manufacturerName,
-        modelName: it.modelName,
-        name: it.name,
-        displayName: it.displayName
-    ]
-  }
-  presenceSensor.each {
-    resp << [
-        id: it.id,
-        label: it.label,
-        manufacturerName: it.manufacturerName,
-        modelName: it.modelName,
-        name: it.name,
-        displayName: it.displayName
-    ]
-  }
-  return resp
+  def items = [*devices, *sensors, *presenceSensor, *temperatures] - null
+    def resp = []
+    
+    items.each {
+      resp << parseDevice(it)
+    }
+    
+    // return resp
+    render contentType: "application/javascript", data: "${params.callback}(${resp.encodeAsJSON()})"
 }
 
 def deviceDetails() {
   def device = getDeviceById(params.id)
-
-  def supportedAttributes = []
-  device.supportedAttributes.each {
-    supportedAttributes << it.name
-  }
-
-  def supportedCommands = []
-  device.supportedCommands.each {
-    def arguments = []
-    it.arguments.each { arg ->
-      arguments << "" + arg
-    }
-    supportedCommands << [
-        name: it.name,
-        arguments: arguments
-    ]
-  }
-
-  return [
-      id: device.id,
-      label: device.label,
-      manufacturerName: device.manufacturerName,
-      modelName: device.modelName,
-      name: device.name,
-      displayName: device.displayName,
-      supportedAttributes: supportedAttributes,
-      supportedCommands: supportedCommands
-  ]
-}
-
-def devicesGetAttributes() {
-  def resp = [];
-  def devicesString = params.devices;
-  def attributesString = params.attributes;
-  def deviceIds = devicesString.split(',');
-  def attributeNames = attributesString.split(',');
-  def lastEvent = false;
-  def lastEventParam = params.lastEvent;
-  log.info("LogEventParam: "+ logEventParam);
-  if(lastEventParam == 'true')
-  	lastEvent = true;
-
-  deviceIds.each {d ->
-    def device = getDeviceById(d);
-    if(device != null) {
-      def deviceStatus = device.getStatus();
-      def lastActivity = device.getLastActivity();
-      def mostRecentEvent = null;
-      def mostRecentEventDate = null;
-      if(lastEvent == true) {
-      	def deviceEvents = device.events(max: 1);
-        if(deviceEvents.size() > 0) {
-        	//mostRecentEvent = deviceEvents[0].name + " - " +deviceEvents[0].stringValue;
-            mostRecentEvent = deviceEvents[0].stringValue;
-            mostRecentEventDate = deviceEvents[0].date;
-        }
-      }
-      	
-      attributeNames.each {a -> 
-        def value = device.currentValue(a);        
-        resp << [
-          id: d,
-          name: a,
-          value: value,
-          deviceStatus: deviceStatus,
-          lastActivity: lastActivity,
-          mostRecentEvent: mostRecentEvent,
-          mostRecentEventDate: mostRecentEventDate
-        ]
-      }
-    }
-    else {
-      log.warn("Could not find device " + d);
-    }
-  }
-  return resp;
-}
-
-def deviceGetAttributeValueForDevices() {
-  def resp = []
-
-  def args = params.arg
-  //log.info("Args: " + args);
+  def resp = parseDevice(device)
     
-  def deviceIds = args.split(',');
-  //log.info("deviceIds: " + deviceIds);
-  def name = params.name
-  //log.info("ParamName: " + name);
-
-  deviceIds.each {
-    def device = getDeviceById(it);
-    if(device != null) {
-        def value = device.currentValue(name);
-        resp << [
-          id: it,
-          value: value
-        ]
-    }
-    else {
-    	log.warn("Could not find device " + it);
-    }
-
-  }
-
-  return resp;
+    resp.status = getDeviceStatus(device)
+    
+    // return resp
+    render contentType: "application/javascript", data: "${params.callback}(${resp.encodeAsJSON()})"
 }
 
-def deviceGetAttributeValue() {
-  def device = getDeviceById(params.id)
-  def name = params.name
-  def value = device.currentValue(name);
+def parseDevice(def device) {
   return [
-      value: value
-  ]
-}
-
-def deviceGetAttributes() {
-  def device = getDeviceById(params.id);
-  def args = params.arg;
-  def attributes = args.split(',');
-  def resp = [];
-  attributes.each {
-    def value = device.currentValue(it);
-    resp << [
-      name: it,
-      value: value
+        id: device?.id,
+        label: device?.label,
+        manufacturerName: device?.manufacturerName,
+        modelName: device?.modelName,
+        name: device?.name,
+        displayName: device?.displayName,
+        capabilities: getDeviceAttributes(device),
+        commands: getDeviceCommands(device),
     ]
-  }
-  return resp;
 }
 
-def deviceStatus() {
-	def device = getDeviceById(params.id)
-    //log.warn("Getting status for device: " + device);
-     def status = device.getStatus();
-     //log.warn("Status for device is: " + status);
-     return [
-     	value: status
-     ]
+def getDeviceAttributes(def device) {
+  def attributes = []
+  device?.getSupportedAttributes().each { attributes << it.name }
+    return attributes
 }
 
-def devicesStatuses() {
-  def resp = []
-  def args = params.devices
-  def deviceIds = args.split(',');
-  deviceIds.each {
-    def device = getDeviceById(it);
-    if(device != null) {
-        def value = device.getStatus();
-        resp << [
-          id: it,
-          value: value
-        ]
+def getDeviceCommands(def device) {
+  def cmds = []
+  device?.getSupportedCommands().each { cmds << it.name }
+    return cmds
+}
+
+def getDeviceStatus(def device) {
+    def resp = [:]
+    getDeviceAttributes(device).each {
+      resp.put(it, device?.currentState(it)?.getValue())
     }
-    else {
-    	log.warn("Could not find device " + it);
-    }
-
-  }
-
-  return resp;
+    return resp;
 }
+
 
 def deviceCommand() {
   def device = getDeviceById(params.id)
-  def name = params.name
-  def args = params.arg
-  def isIntParam = params.isInt;
-  def isInt = false;
-  if("true".equalsIgnoreCase(isIntParam)) {
-  	isInt = true;
+  def command = params.command
+  def parameters = parseCommandParameters(params?.parameters)
+  
+  log.debug "device cmd: ${command} parameters: ${parameters}"
+  
+  if(device.hasCommand(command)) {
+    if (parameters.size() < 1) {
+      device."${command}"() //  TODO: this is really unsafe... (⸝⸝⸝ಠ︿ಠ⸝⸝⸝)
+    }
+    if (parameters.size() == 1) {
+      device."${command}"(parameters[0])
+    }
+    if (parameters.size() == 2) {
+      device."${command}"(parameters[0], parameters[1])
+    }
+    if (parameters.size() == 3) {
+      device."${command}"(parameters[0], parameters[1], parameters[2])
+    }
   }
-  if (args == null) {
-    args = []
-  } else if (args instanceof String) {
-    args = [args]
-  }
-  log.debug "device command: ${name} ${args}"  
-  switch(args.size) {
-    case 0:
-      device."$name"()
-      break;
-    case 1:
-      //log.debug("Arg0 value: " + args[0]);
-      def val = args[0];
-      if(isInt) {
-      	int num = args[0] as Integer
-      	device."$name"(num)
-      }
-      else {
-      	device."$name"(args[0])
-      }
-      //device.setCoolingSetpoint(args[0]);
-      break;
-    case 2:
-      device."$name"(args[0], args[1])
-      break;
-    default:
-      throw new Exception("Unhandled number of args")
-  }
+  
+  render contentType: "application/javascript", data: "${params.callback}(${[].encodeAsJSON()})"
 }
 
-def deviceEvents() {
-	def numEvents = 20
+def parseCommandParameters(def params) {
+  def resp = []
+    params = params ? [*((params+',').split(',') - null)] : []
     
-  def lastEvent = params.lastEvent;
-  def device = getDeviceById(params.id);
-  
-  def events = null;
-  
-  if(lastEvent == null) {
-  	events = device.events();
-  }
-  else {
-  	// date: "2019-07-08T14:20:06Z"
-  	//def dateFormat = new java.util.SimpleDateFormat("yyyy-mm-ddThh:mm:ssZ");
-    log.debug("Parsing date: " + lastEvent);
-  	//def date = Date.parse("yyyy-mm-ddThh:mm:ssZ", lastEvent);// dateFormat.parse(dateFormat);
-    def date = Date.parse("yyyy-MM-dd HH:mm:ss z", lastEvent);// dateFormat.parse(dateFormat);
-    log.debug("Parsed date is: "+ date);
-    def endDate = new Date() - 10; // only 7 days should exist, 
-    log.debug("Searching for events between [" + endDate + "] and [" + date + "]");
-    events = device.eventsBetween(endDate, date);
-    //events = device.eventsBetween(date, endDate, [max: 5]);
-    log.debug("Found [" + events.size() +"] in range");
-  }
-  
-  if(events.size() > 0) {
-  	def last = events.size() - 1;    
-  	log.debug("Event[" + last + "].date = " + events.get(last).date);
-  }
-  //log.debug("Got [" + events.size() + "] events");
-  
-  def resp = [];
-  events.each {
-    resp << [
-      stringValue: it.stringValue,
-      source: it.source,
-      name: it.name,
-      descriptionText: it.descriptionText,
-      date: it.date,
-      description: it.description,
-      //jsonValue: it.jsonValue,
-      value: it.value,
-      linkText: it.linkText
-    ]
-  }
-
-  return resp;
+    params?.each {
+        if (it.isInteger()) { resp << (it as int) }
+        else if (it.isLong()) { resp << (it as long) }
+        else if (it.isBigInteger()) { resp << (it as BigInteger) }
+        else if (it.isDouble()) { resp << (it as double) }
+        else { resp << it }
+    }
+    
+    return resp
 }
+
+// routines
 
 def getRoutines() {
-	def actions = location.helloHome?.getPhrases()*.label;
-    return actions;
+  def resp = []
+    
+    location.helloHome?.getPhrases()?.each {
+      resp << parseRoutine(it)
+    }
+    
+    // return resp;
+    render contentType: "application/javascript", data: "${params.callback}(${resp.encodeAsJSON()})"
+}
+
+def getRoutineById() {
+  def resp = []
+    def routine = location.helloHome?.getPhrases().find { it?.id == params.id }
+    
+    // return parseRoutine(routine);
+    render contentType: "application/javascript", data: "${params.callback}(${parseRoutine(routine).encodeAsJSON()})"
+}
+
+def parseRoutine(def routine) {
+  return [
+      id: routine?.id,
+        name: routine?.label,
+    ]
 }
 
 def executeRoutine(){
-	def name = params.name;
-    log.info("Executing routine: " + name);	
-    location.helloHome?.execute(name)
+  def routine = location.helloHome?.getPhrases().find { it?.id == params.id }
+    log.info("Executing routine: " + routine);
+    if(routine) { location.helloHome?.execute(routine.label) }
+    render contentType: "application/javascript", data: "${params.callback}(${[].encodeAsJSON()})"
 }
 
+// modes
+
 def getModes() {
-  return location.modes
+  def resp = []
+    
+    location.modes?.each {
+      resp << parseMode(it)
+    }
+    
+  // return resp
+    render contentType: "application/javascript", data: "${params.callback}(${resp.encodeAsJSON()})"
+}
+
+def parseMode(def mode) {
+  return [
+      id: mode?.id,
+        name: mode?.name,
+    ]
 }
 
 def getCurrentMode() {
-  return getModes()?.find {it.name == location.mode}
+  def mode = location.modes?.find {it.name == location.mode}
+    render contentType: "application/javascript", data: "${params.callback}(${parseMode(mode).encodeAsJSON()})"
 }
 
 def setCurrentMode() {
-  def mode = request?.JSON;
+  def id = params?.id;
     
-    log.info("Executing setModes mode: " + mode);
+    log.info("Executing setModes id: " + id);
     
-    if (mode && mode.id) {
-      def found = getModes()?.find {it.name == location.mode};
+    if (id) {
+      def found = location.modes?.find {it.id == id}
         if (found) {
         log.info("setModes found: " + found);
           setLocationMode(found);
         }
     }
-}
-
-
-def test() {
-
-/*
-
-	if(location != null)
-    	console.log("Location not null");
-    def helloHome = location.helloHome;
-    if(helloHome != null)
-    	console.log("Hello Home: " + helloHome);
-*/
-	def actions = location.helloHome?.getPhrases()*.label;
-    //console.log("Actions: " + actions);
-    //console.log("Got [" + actions.size() + "] actions");
     
-    /*
-    actions.each {
-    	console.log("Action: " + it);
-    }*/
-    return actions;
+  render contentType: "application/javascript", data: "${params.callback}(${[].encodeAsJSON()})"
 }
 
-def getDeviceById(id) {
+def getDeviceById(id) { // TODO: isn't there an st api for that?
   def device = devices.find { it.id == id }
   if(device == null)
-  	device = sensors.find{it.id == id}
+    device = sensors.find{it.id == id}
   if(device == null)
-  	device = temperatures.find{it.id == id}
+    device = temperatures.find{it.id == id}
   if(device == null)
     device = presenceSensor.find{it.id == id}
   return device;

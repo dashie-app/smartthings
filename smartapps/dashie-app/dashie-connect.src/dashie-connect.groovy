@@ -20,9 +20,9 @@ definition(
     author: "Tobias Haerke",
     description: "Connect to dashie.app",
     category: "SmartThings Labs",
-    iconUrl: "https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience.png",
-    iconX2Url: "https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience@2x.png",
-    iconX3Url: "https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience@2x.png",
+    iconUrl: "https://raw.githubusercontent.com/dashie-app/smartthings/v1.0.0/smartapps/dashie-app/dashie-connect.src/icn/dashie-connect.png",
+    iconX2Url: "https://raw.githubusercontent.com/dashie-app/smartthings/v1.0.0/smartapps/dashie-app/dashie-connect.src/icn/dashie-connect@2x.png",
+    iconX3Url: "https://raw.githubusercontent.com/dashie-app/smartthings/v1.0.0/smartapps/dashie-app/dashie-connect.src/icn/dashie-connect@3x.png",
     oauth: [displayName: "dashie-app", displayLink: ""]
 )
 
